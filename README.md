@@ -1,7 +1,3 @@
-Certainly\! Here is the README translated into English, using the title **`nyc-tlc-etl-airflow-pandas-postgres`**.
-
------
-
 ## 🚕 nyc-tlc-etl-airflow-pandas-postgres
 
 A robust Data Engineering pipeline designed to perform the **Extract, Transform, Load (ETL)** process on **NYC Taxi & Limousine Commission (TLC)** data into a structured data warehouse using **Docker**, **Apache Airflow**, and **PostgreSQL**.
