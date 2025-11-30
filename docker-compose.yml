@@ -1,0 +1,116 @@
+version: "3.8"
+
+services:
+  airflow-db:
+    image: postgres:13
+    container_name: airflow_postgres_31
+    environment:
+      POSTGRES_DB: ${AIRFLOW_POSTGRES_DB}
+      POSTGRES_USER: ${AIRFLOW_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - airflow_pgdata:/var/lib/postgresql/data
+    networks:
+      - airflow_net
+
+  retail-db:
+    image: postgres:13
+    container_name: retail_postgres_31
+    environment:
+      POSTGRES_DB: ${RETAIL_POSTGRES_DB}
+      POSTGRES_USER: ${RETAIL_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${RETAIL_POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./airflow/scripts/02_init_db_nyc_pg.sql:/docker-entrypoint-initdb.d/02_init_db_nyc_pg.sql
+    networks:
+      - airflow_net
+
+  airflow-webserver:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    image: airflow-dbt-custom:2.9.1
+    container_name: airflow_webserver_31
+    restart: always
+    depends_on:
+      - airflow-db
+      - retail-db
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_POSTGRES_USER}:${AIRFLOW_POSTGRES_PASSWORD}@airflow-db:5432/${AIRFLOW_POSTGRES_DB}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+      PYTHONPATH: /opt/airflow 
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/config:/opt/airflow/config
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/operators:/opt/airflow/operators
+      - ./airflow/plugins:/opt/airflow/plugins   
+      - ./airflow/utils:/opt/airflow/utils
+      - ./airflow/services:/opt/airflow/services
+      - ./airflow/data:/opt/airflow/data
+      - ./airflow/db:/opt/airflow/db
+      - ./airflow/scripts:/opt/airflow/scripts
+      - ./airflow/tmp:/opt/airflow/tmp
+      - ./airflow/.env:/opt/airflow/.env
+      - ./data:/usr/local/airflow/data
+    ports:
+      - "8080:8080"
+    command: >
+      bash -c "
+        airflow webserver
+      "
+    networks:
+      - airflow_net
+
+  airflow-scheduler:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    env_file:
+      - ./airflow/.env.beam
+    image: airflow-dbt-custom:2.9.1
+    container_name: airflow_scheduler_31
+    restart: always
+    depends_on:
+      - airflow-db
+      - retail-db
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_POSTGRES_USER}:${AIRFLOW_POSTGRES_PASSWORD}@airflow-db:5432/${AIRFLOW_POSTGRES_DB}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+      PYTHONPATH: /opt/airflow 
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/config:/opt/airflow/config
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/operators:/opt/airflow/operators
+      - ./airflow/plugins:/opt/airflow/plugins   
+      - ./airflow/utils:/opt/airflow/utils
+      - ./airflow/services:/opt/airflow/services
+      - ./airflow/data:/opt/airflow/data
+      - ./airflow/db:/opt/airflow/db
+      - ./airflow/scripts:/opt/airflow/scripts
+      - ./airflow/tmp:/opt/airflow/tmp
+      - ./.dbt/profiles.yml:/home/airflow/.dbt/profiles.yml
+      
+    command: >
+      bash -c "
+        airflow scheduler
+      "
+    networks:
+      - airflow_net
+
+networks:
+  airflow_net:
+
+volumes:
+  airflow_pgdata: {}
+  retail_pgdata: {}
+  airflow_logs: {}
